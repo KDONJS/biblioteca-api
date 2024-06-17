@@ -1,3 +1,5 @@
+const fs = require('fs');
+const path = require('path');
 const Book = require('../models/Book');
 
 exports.getBooks = async (req, res) => {
@@ -66,9 +68,104 @@ exports.deleteBook = async (req, res) => {
       return res.status(404).json({ msg: 'Book not found' });
     }
 
+    const filePath = path.join(__dirname, '../', book.fileUrl);
+    if (fs.existsSync(filePath)) {
+      fs.unlinkSync(filePath);
+    }
+
     await Book.findByIdAndDelete(id);
 
-    res.json({ msg: 'Book removed' });
+    res.json({ msg: 'Book and file removed' });
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).send('Server Error');
+  }
+};
+
+exports.addComment = async (req, res) => {
+  const { id } = req.params;
+  const { text } = req.body;
+
+  try {
+    let book = await Book.findById(id);
+
+    if (!book) {
+      return res.status(404).json({ msg: 'Book not found' });
+    }
+
+    const newComment = {
+      text
+    };
+
+    book.comments.unshift(newComment);
+    await book.save();
+
+    res.json(book.comments);
+  } catch (err) {
+    res.status(500).send('Server Error');
+  }
+};
+
+exports.getComments = async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    let book = await Book.findById(id);
+
+    if (!book) {
+      return res.status(404).json({ msg: 'Book not found' });
+    }
+
+    res.json(book.comments);
+  } catch (err) {
+    res.status(500).send('Server Error');
+  }
+};
+
+exports.updateComment = async (req, res) => {
+  const { id, commentId } = req.params;
+  const { text } = req.body;
+
+  try {
+    let book = await Book.findById(id);
+
+    if (!book) {
+      return res.status(404).json({ msg: 'Book not found' });
+    }
+
+    const comment = book.comments.id(commentId);
+    if (!comment) {
+      return res.status(404).json({ msg: 'Comment not found' });
+    }
+
+    comment.text = text;
+    await book.save();
+
+    res.json(book.comments);
+  } catch (err) {
+    res.status(500).send('Server Error');
+  }
+};
+
+exports.deleteComment = async (req, res) => {
+  const { id, commentId } = req.params;
+
+  try {
+    let book = await Book.findById(id);
+
+    if (!book) {
+      return res.status(404).json({ msg: 'Book not found' });
+    }
+
+    const comment = book.comments.id(commentId);
+    if (!comment) {
+      return res.status(404).json({ msg: 'Comment not found' });
+    }
+
+    book.comments.pull(commentId);
+    await book.save();
+
+    res.json(book.comments);
   } catch (err) {
     res.status(500).send('Server Error');
   }
