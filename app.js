@@ -4,7 +4,7 @@ const dotenv = require('dotenv');
 const helmet = require('helmet');
 const cookieParser = require('cookie-parser');
 const csrf = require('csrf');
-const { admin, bucket } = require('./config/firebase');  // Asegúrate de que la ruta sea correcta
+const { admin, bucket } = require('./config/firebase');
 
 // Cargar variables de entorno desde el archivo .env
 dotenv.config();
@@ -56,6 +56,7 @@ app.use('/uploads', express.static('uploads'));
 
 // Rutas
 app.use('/api/books', require('./routes/books'));
+app.use('/api/auth', require('./routes/auth'));
 
 // Ruta para obtener el token CSRF
 app.get('/form', (req, res) => {
