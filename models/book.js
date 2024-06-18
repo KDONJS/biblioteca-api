@@ -1,5 +1,11 @@
 const mongoose = require('mongoose');
 
+const FileSchema = new mongoose.Schema({
+  fileUrl: { type: String, required: true },
+  isDeleted: { type: Boolean, default: false },
+  uploadedAt: { type: Date, default: Date.now }
+});
+
 const CommentSchema = new mongoose.Schema({
   text: { type: String, required: true },
   date: { type: Date, default: Date.now }
@@ -12,8 +18,7 @@ const BookSchema = new mongoose.Schema({
   publisher: { type: String, required: true },
   tags: [String],
   categories: [String],
-  fileUrl: { type: String, required: true },
-  uploadedAt: { type: Date, default: Date.now },
+  files: [FileSchema],
   comments: [CommentSchema]
 });
 

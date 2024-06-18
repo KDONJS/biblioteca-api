@@ -1,21 +1,34 @@
 const fs = require('fs');
 const path = require('path');
 const Book = require('../models/Book');
+const { bucket } = require('../config/firebase');
 
 exports.getBooks = async (req, res) => {
   try {
     const books = await Book.find();
     res.json(books);
   } catch (err) {
+    console.error(err.message);
     res.status(500).send('Server Error');
   }
 };
 
 exports.addBook = async (req, res) => {
   const { title, author, year, publisher, tags, categories } = req.body;
-  const fileUrl = req.file.path;
+  const filePath = req.file.path;
+  const fileName = req.file.filename;
 
   try {
+    await bucket.upload(filePath, {
+      destination: `uploads/${fileName}`,
+      gzip: true,
+      metadata: {
+        cacheControl: 'public, max-age=31536000',
+      },
+    });
+
+    const fileUrl = `https://storage.googleapis.com/${process.env.FIREBASE_STORAGE_BUCKET}/uploads/${fileName}`;
+
     const newBook = new Book({
       title,
       author,
@@ -23,12 +36,16 @@ exports.addBook = async (req, res) => {
       publisher,
       tags,
       categories,
-      fileUrl
+      files: [{ fileUrl }]
     });
 
     const book = await newBook.save();
+
+    fs.unlinkSync(filePath);
+
     res.json(book);
   } catch (err) {
+    console.error(err.message);
     res.status(500).send('Server Error');
   }
 };
@@ -39,10 +56,6 @@ exports.updateBook = async (req, res) => {
 
   const updateFields = { title, author, year, publisher, tags, categories };
 
-  if (req.file) {
-    updateFields.fileUrl = req.file.path;
-  }
-
   try {
     let book = await Book.findById(id);
 
@@ -50,10 +63,39 @@ exports.updateBook = async (req, res) => {
       return res.status(404).json({ msg: 'Book not found' });
     }
 
-    book = await Book.findByIdAndUpdate(id, { $set: updateFields }, { new: true });
+    if (req.file) {
+      const filePath = req.file.path;
+      const fileName = req.file.filename;
+
+      // Subir el nuevo archivo
+      await bucket.upload(filePath, {
+        destination: `uploads/${fileName}`,
+        gzip: true,
+        metadata: {
+          cacheControl: 'public, max-age=31536000',
+        },
+      });
+
+      const fileUrl = `https://storage.googleapis.com/${process.env.FIREBASE_STORAGE_BUCKET}/uploads/${fileName}`;
+      
+      // Marcar el archivo actual como eliminado
+      book.files.forEach(file => file.isDeleted = true);
+
+      // Añadir el nuevo archivo al historial
+      book.files.unshift({ fileUrl });
+
+      // Eliminar el archivo local
+      fs.unlinkSync(filePath);
+    }
+
+    // Actualizar los campos del libro
+    Object.assign(book, updateFields);
+
+    await book.save();
 
     res.json(book);
   } catch (err) {
+    console.error(err.message);
     res.status(500).send('Server Error');
   }
 };
@@ -68,14 +110,15 @@ exports.deleteBook = async (req, res) => {
       return res.status(404).json({ msg: 'Book not found' });
     }
 
-    const filePath = path.join(__dirname, '../', book.fileUrl);
-    if (fs.existsSync(filePath)) {
-      fs.unlinkSync(filePath);
+    // Eliminar archivos del bucket de Firebase Storage
+    for (let file of book.files) {
+      const fileName = path.basename(file.fileUrl);
+      await bucket.file(`uploads/${fileName}`).delete();
     }
 
     await Book.findByIdAndDelete(id);
 
-    res.json({ msg: 'Book and file removed' });
+    res.json({ msg: 'Book and files removed' });
   } catch (err) {
     console.error(err.message);
     res.status(500).send('Server Error');
