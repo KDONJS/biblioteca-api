@@ -1,6 +1,7 @@
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
+const RevokedToken = require('../models/RevokedToken'); // Importar el modelo de tokens revocados
 const { bucket } = require('../config/firebase');
 const fs = require('fs');
 const path = require('path');
@@ -76,6 +77,21 @@ exports.login = async (req, res) => {
   }
 };
 
+// Cerrar sesión de usuario
+exports.logout = async (req, res) => {
+  try {
+    const token = req.header('x-auth-token');
+    if (token) {
+      const revokedToken = new RevokedToken({ token });
+      await revokedToken.save();
+    }
+    res.json({ msg: 'Logged out successfully' });
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).send('Server Error');
+  }
+};
+
 // Obtener perfil de usuario
 exports.getProfile = async (req, res) => {
   try {
@@ -130,16 +146,6 @@ exports.updateProfile = async (req, res) => {
     user = await User.findByIdAndUpdate(req.user.id, { $set: updateFields }, { new: true }).select('-password');
 
     res.json(user);
-  } catch (err) {
-    console.error(err.message);
-    res.status(500).send('Server Error');
-  }
-};
-
-exports.logout = async (req, res) => {
-  try {
-    // Aquí podrías manejar la invalidación del token si es necesario
-    res.json({ msg: 'Logged out successfully' });
   } catch (err) {
     console.error(err.message);
     res.status(500).send('Server Error');

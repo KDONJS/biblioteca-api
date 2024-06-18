@@ -10,6 +10,9 @@ router.post('/register', authController.register);
 // Inicio de sesión de usuario
 router.post('/login', authController.login);
 
+// Cerrar sesión de usuario
+router.post('/logout', auth, authController.logout);
+
 // Obtener perfil de usuario
 router.get('/profile', auth, authController.getProfile);
 
