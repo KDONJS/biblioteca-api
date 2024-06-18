@@ -1,8 +1,9 @@
 const fs = require('fs');
 const path = require('path');
-const Book = require('../models/Book');
+const Book = require('../models/book');
 const { bucket } = require('../config/firebase');
 
+// Obtener todos los libros
 exports.getBooks = async (req, res) => {
   try {
     const books = await Book.find();
@@ -13,6 +14,7 @@ exports.getBooks = async (req, res) => {
   }
 };
 
+// Añadir un nuevo libro
 exports.addBook = async (req, res) => {
   const { title, author, year, publisher, tags, categories } = req.body;
   const filePath = req.file.path;
@@ -50,6 +52,7 @@ exports.addBook = async (req, res) => {
   }
 };
 
+// Actualizar un libro
 exports.updateBook = async (req, res) => {
   const { id } = req.params;
   const { title, author, year, publisher, tags, categories } = req.body;
@@ -100,6 +103,7 @@ exports.updateBook = async (req, res) => {
   }
 };
 
+// Eliminar un libro
 exports.deleteBook = async (req, res) => {
   const { id } = req.params;
 
@@ -125,6 +129,7 @@ exports.deleteBook = async (req, res) => {
   }
 };
 
+// Añadir un comentario a un libro
 exports.addComment = async (req, res) => {
   const { id } = req.params;
   const { text } = req.body;
@@ -145,10 +150,12 @@ exports.addComment = async (req, res) => {
 
     res.json(book.comments);
   } catch (err) {
+    console.error(err.message);
     res.status(500).send('Server Error');
   }
 };
 
+// Obtener los comentarios de un libro
 exports.getComments = async (req, res) => {
   const { id } = req.params;
 
@@ -161,10 +168,12 @@ exports.getComments = async (req, res) => {
 
     res.json(book.comments);
   } catch (err) {
+    console.error(err.message);
     res.status(500).send('Server Error');
   }
 };
 
+// Actualizar un comentario
 exports.updateComment = async (req, res) => {
   const { id, commentId } = req.params;
   const { text } = req.body;
@@ -186,10 +195,12 @@ exports.updateComment = async (req, res) => {
 
     res.json(book.comments);
   } catch (err) {
+    console.error(err.message);
     res.status(500).send('Server Error');
   }
 };
 
+// Eliminar un comentario
 exports.deleteComment = async (req, res) => {
   const { id, commentId } = req.params;
 
@@ -205,11 +216,35 @@ exports.deleteComment = async (req, res) => {
       return res.status(404).json({ msg: 'Comment not found' });
     }
 
+    // Remove the comment from the array
     book.comments.pull(commentId);
     await book.save();
 
     res.json(book.comments);
   } catch (err) {
+    console.error(err.message);
+    res.status(500).send('Server Error');
+  }
+};
+
+// Obtener información del libro con comentarios y contabilizar visualizaciones
+exports.getBookWithComments = async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    let book = await Book.findById(id);
+
+    if (!book) {
+      return res.status(404).json({ msg: 'Book not found' });
+    }
+
+    // Incrementar el contador de visualizaciones
+    book.views += 1;
+    await book.save();
+
+    res.json(book);
+  } catch (err) {
+    console.error(err.message);
     res.status(500).send('Server Error');
   }
 };

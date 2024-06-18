@@ -19,7 +19,8 @@ const BookSchema = new mongoose.Schema({
   tags: [String],
   categories: [String],
   files: [FileSchema],
-  comments: [CommentSchema]
+  comments: [CommentSchema],
+  views: { type: Number, default: 0 }
 });
 
 module.exports = mongoose.model('Book', BookSchema);
