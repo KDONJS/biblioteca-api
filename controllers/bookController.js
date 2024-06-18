@@ -1,12 +1,23 @@
 const fs = require('fs');
 const path = require('path');
-const Book = require('../models/book');
+const Book = require('../models/Book');
 const { bucket } = require('../config/firebase');
 
-// Obtener todos los libros
-exports.getBooks = async (req, res) => {
+// Obtener todos los libros públicos
+exports.getPublicBooks = async (req, res) => {
   try {
-    const books = await Book.find();
+    const books = await Book.find({ isPublic: true });
+    res.json(books);
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).send('Server Error');
+  }
+};
+
+// Obtener todos los libros del usuario
+exports.getUserBooks = async (req, res) => {
+  try {
+    const books = await Book.find({ user: req.user.id });
     res.json(books);
   } catch (err) {
     console.error(err.message);
@@ -16,7 +27,7 @@ exports.getBooks = async (req, res) => {
 
 // Añadir un nuevo libro
 exports.addBook = async (req, res) => {
-  const { title, author, year, publisher, tags, categories } = req.body;
+  const { title, author, year, publisher, tags, categories, isPublic } = req.body;
   const filePath = req.file.path;
   const fileName = req.file.filename;
 
@@ -38,7 +49,9 @@ exports.addBook = async (req, res) => {
       publisher,
       tags,
       categories,
-      files: [{ fileUrl }]
+      files: [{ fileUrl }],
+      user: req.user.id,
+      isPublic: isPublic || true
     });
 
     const book = await newBook.save();
@@ -55,9 +68,9 @@ exports.addBook = async (req, res) => {
 // Actualizar un libro
 exports.updateBook = async (req, res) => {
   const { id } = req.params;
-  const { title, author, year, publisher, tags, categories } = req.body;
+  const { title, author, year, publisher, tags, categories, isPublic } = req.body;
 
-  const updateFields = { title, author, year, publisher, tags, categories };
+  const updateFields = { title, author, year, publisher, tags, categories, isPublic };
 
   try {
     let book = await Book.findById(id);
@@ -66,11 +79,14 @@ exports.updateBook = async (req, res) => {
       return res.status(404).json({ msg: 'Book not found' });
     }
 
+    if (book.user.toString() !== req.user.id && req.user.role !== 'admin') {
+      return res.status(401).json({ msg: 'User not authorized' });
+    }
+
     if (req.file) {
       const filePath = req.file.path;
       const fileName = req.file.filename;
 
-      // Subir el nuevo archivo
       await bucket.upload(filePath, {
         destination: `uploads/${fileName}`,
         gzip: true,
@@ -80,18 +96,14 @@ exports.updateBook = async (req, res) => {
       });
 
       const fileUrl = `https://storage.googleapis.com/${process.env.FIREBASE_STORAGE_BUCKET}/uploads/${fileName}`;
-      
-      // Marcar el archivo actual como eliminado
+
       book.files.forEach(file => file.isDeleted = true);
 
-      // Añadir el nuevo archivo al historial
       book.files.unshift({ fileUrl });
 
-      // Eliminar el archivo local
       fs.unlinkSync(filePath);
     }
 
-    // Actualizar los campos del libro
     Object.assign(book, updateFields);
 
     await book.save();
@@ -114,7 +126,10 @@ exports.deleteBook = async (req, res) => {
       return res.status(404).json({ msg: 'Book not found' });
     }
 
-    // Eliminar archivos del bucket de Firebase Storage
+    if (book.user.toString() !== req.user.id && req.user.role !== 'admin') {
+      return res.status(401).json({ msg: 'User not authorized' });
+    }
+
     for (let file of book.files) {
       const fileName = path.basename(file.fileUrl);
       await bucket.file(`uploads/${fileName}`).delete();
@@ -123,6 +138,31 @@ exports.deleteBook = async (req, res) => {
     await Book.findByIdAndDelete(id);
 
     res.json({ msg: 'Book and files removed' });
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).send('Server Error');
+  }
+};
+
+// Obtener información del libro con comentarios y contabilizar visualizaciones
+exports.getBookWithComments = async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    let book = await Book.findById(id);
+
+    if (!book) {
+      return res.status(404).json({ msg: 'Book not found' });
+    }
+
+    if (!book.isPublic && book.user.toString() !== req.user.id && req.user.role !== 'admin') {
+      return res.status(401).json({ msg: 'User not authorized' });
+    }
+
+    book.views += 1;
+    await book.save();
+
+    res.json(book);
   } catch (err) {
     console.error(err.message);
     res.status(500).send('Server Error');
@@ -216,33 +256,10 @@ exports.deleteComment = async (req, res) => {
       return res.status(404).json({ msg: 'Comment not found' });
     }
 
-    // Remove the comment from the array
     book.comments.pull(commentId);
     await book.save();
 
     res.json(book.comments);
-  } catch (err) {
-    console.error(err.message);
-    res.status(500).send('Server Error');
-  }
-};
-
-// Obtener información del libro con comentarios y contabilizar visualizaciones
-exports.getBookWithComments = async (req, res) => {
-  const { id } = req.params;
-
-  try {
-    let book = await Book.findById(id);
-
-    if (!book) {
-      return res.status(404).json({ msg: 'Book not found' });
-    }
-
-    // Incrementar el contador de visualizaciones
-    book.views += 1;
-    await book.save();
-
-    res.json(book);
   } catch (err) {
     console.error(err.message);
     res.status(500).send('Server Error');

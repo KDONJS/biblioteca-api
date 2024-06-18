@@ -8,7 +8,7 @@ const path = require('path');
 
 // Registrar usuario
 exports.register = async (req, res) => {
-  const { name, email, password } = req.body;
+  const { name, email, password, role } = req.body;
 
   try {
     let user = await User.findOne({ email });
@@ -19,7 +19,8 @@ exports.register = async (req, res) => {
     user = new User({
       name,
       email,
-      password
+      password,
+      role // Asignar el rol del usuario
     });
 
     // Encriptar la contraseña
@@ -31,7 +32,8 @@ exports.register = async (req, res) => {
     // Crear y devolver token JWT
     const payload = {
       user: {
-        id: user.id
+        id: user.id,
+        role: user.role // Añadir el rol al payload
       }
     };
 
@@ -55,6 +57,10 @@ exports.login = async (req, res) => {
       return res.status(400).json({ msg: 'Invalid credentials' });
     }
 
+    if (!user.isActive) {
+      return res.status(403).json({ msg: 'Account is deactivated' });
+    }
+
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {
       return res.status(400).json({ msg: 'Invalid credentials' });
@@ -63,7 +69,8 @@ exports.login = async (req, res) => {
     // Crear y devolver token JWT
     const payload = {
       user: {
-        id: user.id
+        id: user.id,
+        role: user.role // Añadir el rol al payload
       }
     };
 
@@ -146,6 +153,68 @@ exports.updateProfile = async (req, res) => {
     user = await User.findByIdAndUpdate(req.user.id, { $set: updateFields }, { new: true }).select('-password');
 
     res.json(user);
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).send('Server Error');
+  }
+};
+
+// Eliminar usuario
+exports.deleteAccount = async (req, res) => {
+  try {
+    let user = await User.findById(req.user.id);
+
+    if (!user) {
+      return res.status(404).json({ msg: 'User not found' });
+    }
+
+    // Eliminar archivos de perfil del bucket de Firebase Storage si existen
+    if (user.profilePicture) {
+      const fileName = path.basename(user.profilePicture);
+      await bucket.file(`profile-pictures/${fileName}`).delete();
+    }
+
+    await User.findByIdAndDelete(req.user.id);
+
+    res.json({ msg: 'User account and files removed' });
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).send('Server Error');
+  }
+};
+
+// Desactivar usuario
+exports.deactivateAccount = async (req, res) => {
+  try {
+    let user = await User.findById(req.user.id);
+
+    if (!user) {
+      return res.status(404).json({ msg: 'User not found' });
+    }
+
+    user.isActive = false;
+    await user.save();
+
+    res.json({ msg: 'User account deactivated' });
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).send('Server Error');
+  }
+};
+
+// Activar usuario
+exports.activateAccount = async (req, res) => {
+  try {
+    let user = await User.findById(req.user.id);
+
+    if (!user) {
+      return res.status(404).json({ msg: 'User not found' });
+    }
+
+    user.isActive = true;
+    await user.save();
+
+    res.json({ msg: 'User account activated' });
   } catch (err) {
     console.error(err.message);
     res.status(500).send('Server Error');

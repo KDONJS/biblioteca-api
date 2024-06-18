@@ -19,4 +19,13 @@ router.get('/profile', auth, authController.getProfile);
 // Actualizar perfil de usuario
 router.put('/profile', auth, upload.single('file'), authController.updateProfile);
 
+// Eliminar cuenta de usuario
+router.delete('/profile', auth, authController.deleteAccount);
+
+// Desactivar cuenta de usuario
+router.post('/profile/deactivate', auth, authController.deactivateAccount);
+
+// Activar cuenta de usuario
+router.post('/profile/activate', auth, authController.activateAccount);
+
 module.exports = router;

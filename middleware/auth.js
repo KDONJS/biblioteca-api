@@ -25,3 +25,12 @@ module.exports = async function(req, res, next) {
     res.status(401).json({ msg: 'Token is not valid' });
   }
 };
+
+module.exports.checkRole = function(roles) {
+  return function(req, res, next) {
+    if (!roles.includes(req.user.role)) {
+      return res.status(403).json({ msg: 'Access denied' });
+    }
+    next();
+  };
+};
