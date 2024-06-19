@@ -110,7 +110,7 @@ exports.getProfile = async (req, res) => {
   }
 };
 
-// Actualizar perfil de usuario
+// Actualizar perfil de usuario (propio)
 exports.updateProfile = async (req, res) => {
   const { name, email } = req.body;
   const updateFields = { name, email };
@@ -159,10 +159,62 @@ exports.updateProfile = async (req, res) => {
   }
 };
 
-// Eliminar usuario
-exports.deleteAccount = async (req, res) => {
+// Actualizar perfil de otro usuario (solo admin)
+exports.updateUserProfile = async (req, res) => {
+  const { userId } = req.params;
+  const { name, email, role, isActive } = req.body;
+  const updateFields = { name, email, role, isActive };
+
   try {
-    let user = await User.findById(req.user.id);
+    let user = await User.findById(userId);
+
+    if (!user) {
+      return res.status(404).json({ msg: 'User not found' });
+    }
+
+    if (req.file) {
+      const filePath = req.file.path;
+      const fileName = req.file.filename;
+
+      // Subir el nuevo archivo
+      await bucket.upload(filePath, {
+        destination: `profile-pictures/${fileName}`,
+        gzip: true,
+        metadata: {
+          cacheControl: 'public, max-age=31536000',
+        },
+      });
+
+      const profilePicture = `https://storage.googleapis.com/${process.env.FIREBASE_STORAGE_BUCKET}/profile-pictures/${fileName}`;
+
+      // Eliminar la foto de perfil anterior si existe
+      if (user.profilePicture) {
+        const oldFileName = path.basename(user.profilePicture);
+        await bucket.file(`profile-pictures/${oldFileName}`).delete();
+      }
+
+      // Asignar la nueva foto de perfil
+      updateFields.profilePicture = profilePicture;
+
+      // Eliminar el archivo local
+      fs.unlinkSync(filePath);
+    }
+
+    user = await User.findByIdAndUpdate(userId, { $set: updateFields }, { new: true }).select('-password');
+
+    res.json(user);
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).send('Server Error');
+  }
+};
+
+// Eliminar usuario (solo admin)
+exports.deleteAccount = async (req, res) => {
+  const { userId } = req.params;
+
+  try {
+    let user = await User.findById(userId);
 
     if (!user) {
       return res.status(404).json({ msg: 'User not found' });
@@ -174,7 +226,7 @@ exports.deleteAccount = async (req, res) => {
       await bucket.file(`profile-pictures/${fileName}`).delete();
     }
 
-    await User.findByIdAndDelete(req.user.id);
+    await User.findByIdAndDelete(userId);
 
     res.json({ msg: 'User account and files removed' });
   } catch (err) {
@@ -183,7 +235,7 @@ exports.deleteAccount = async (req, res) => {
   }
 };
 
-// Desactivar usuario
+// Desactivar usuario (propio)
 exports.deactivateAccount = async (req, res) => {
   try {
     let user = await User.findById(req.user.id);
@@ -202,7 +254,7 @@ exports.deactivateAccount = async (req, res) => {
   }
 };
 
-// Activar usuario
+// Activar usuario (propio)
 exports.activateAccount = async (req, res) => {
   try {
     let user = await User.findById(req.user.id);
