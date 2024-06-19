@@ -1,14 +1,8 @@
 const fs = require('fs');
 const path = require('path');
+const { isValidPath, sanitizePath } = require('../utils/fileUtils');
 const Book = require('../models/Book');
 const { bucket } = require('../config/firebase');
-
-// Función para validar la ruta del archivo
-function isValidPath(filePath) {
-  const uploadsDir = path.resolve(__dirname, '../uploads');
-  const resolvedPath = path.resolve(filePath);
-  return resolvedPath.startsWith(uploadsDir);
-}
 
 // Obtener todos los libros públicos
 exports.getPublicBooks = async (req, res) => {
@@ -35,7 +29,7 @@ exports.getUserBooks = async (req, res) => {
 // Añadir un nuevo libro
 exports.addBook = async (req, res) => {
   const { title, author, year, publisher, tags, categories, isPublic } = req.body;
-  const filePath = req.file.path;
+  const filePath = sanitizePath(req.file.path);
   const fileName = req.file.filename;
 
   try {
@@ -95,7 +89,7 @@ exports.updateBook = async (req, res) => {
     }
 
     if (req.file) {
-      const filePath = req.file.path;
+      const filePath = sanitizePath(req.file.path);
       const fileName = req.file.filename;
 
       await bucket.upload(filePath, {

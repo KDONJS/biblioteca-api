@@ -1,10 +1,11 @@
-const bcrypt = require('bcryptjs');
-const jwt = require('jsonwebtoken');
-const User = require('../models/User');
-const RevokedToken = require('../models/RevokedToken'); // Importar el modelo de tokens revocados
-const { bucket } = require('../config/firebase');
 const fs = require('fs');
 const path = require('path');
+const bcrypt = require('bcrypt'); // Asegúrate de importar bcrypt
+const jwt = require('jsonwebtoken');
+const { isValidPath, sanitizePath } = require('../utils/fileUtils');
+const User = require('../models/User');
+const { bucket } = require('../config/firebase');
+const RevokedToken = require('../models/RevokedToken'); // Asegúrate de tener este modelo
 
 // Registrar usuario
 exports.register = async (req, res) => {
@@ -123,7 +124,7 @@ exports.updateProfile = async (req, res) => {
     }
 
     if (req.file) {
-      const filePath = req.file.path;
+      const filePath = sanitizePath(req.file.path);
       const fileName = req.file.filename;
 
       // Subir el nuevo archivo
