@@ -5,6 +5,7 @@ const helmet = require('helmet');
 const cookieParser = require('cookie-parser');
 const csrf = require('csrf');
 const { admin, bucket } = require('./config/firebase');
+const rateLimit = require('./middleware/rateLimit'); // Importar el middleware de limitación de velocidad
 
 // Cargar variables de entorno desde el archivo .env
 dotenv.config();
@@ -55,8 +56,8 @@ app.use((err, req, res, next) => {
 app.use('/uploads', express.static('uploads'));
 
 // Rutas
-app.use('/api/books', require('./routes/books'));
-app.use('/api/auth', require('./routes/auth'));
+app.use('/api/books', rateLimit, require('./routes/books'));
+app.use('/api/auth', rateLimit, require('./routes/auth'));
 
 // Ruta para obtener el token CSRF
 app.get('/form', (req, res) => {
