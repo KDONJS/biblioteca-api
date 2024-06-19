@@ -1,11 +1,11 @@
 const fs = require('fs');
 const path = require('path');
-const bcrypt = require('bcrypt'); // Asegúrate de importar bcrypt
+const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const { isValidPath, sanitizePath } = require('../utils/fileUtils');
 const User = require('../models/User');
 const { bucket } = require('../config/firebase');
-const RevokedToken = require('../models/RevokedToken'); // Asegúrate de tener este modelo
+const RevokedToken = require('../models/RevokedToken');
 
 // Registrar usuario
 exports.register = async (req, res) => {
@@ -208,7 +208,11 @@ exports.updateUserProfile = async (req, res) => {
       updateFields.profilePicture = profilePicture;
 
       // Eliminar el archivo local
-      fs.unlinkSync(filePath);
+      if (isValidPath(filePath)) {
+        fs.unlinkSync(filePath);
+      } else {
+        console.error('Invalid file path detected:', filePath);
+      }
     }
 
     user = await User.findByIdAndUpdate(userId, { $set: updateFields }, { new: true }).select('-password');
