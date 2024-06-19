@@ -3,7 +3,7 @@ const router = express.Router();
 const bookController = require('../controllers/bookController');
 const auth = require('../middleware/auth');
 const upload = require('../middleware/upload');
-const rateLimit = require('../middleware/rateLimit'); // Importar el middleware de limitación de velocidad
+const rateLimit = require('../middleware/rateLimit');
 
 const checkRole = require('../middleware/auth').checkRole;
 

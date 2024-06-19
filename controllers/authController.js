@@ -140,14 +140,24 @@ exports.updateProfile = async (req, res) => {
       // Eliminar la foto de perfil anterior si existe
       if (user.profilePicture) {
         const oldFileName = path.basename(user.profilePicture);
-        await bucket.file(`profile-pictures/${oldFileName}`).delete();
+        const oldFilePath = path.resolve(__dirname, '../uploads', oldFileName);
+        if (isValidPath(oldFilePath)) {
+          await bucket.file(`profile-pictures/${oldFileName}`).delete();
+          fs.unlinkSync(oldFilePath);
+        } else {
+          console.error('Invalid file path detected:', oldFilePath);
+        }
       }
 
       // Asignar la nueva foto de perfil
       updateFields.profilePicture = profilePicture;
 
       // Eliminar el archivo local
-      fs.unlinkSync(filePath);
+      if (isValidPath(filePath)) {
+        fs.unlinkSync(filePath);
+      } else {
+        console.error('Invalid file path detected:', filePath);
+      }
     }
 
     user = await User.findByIdAndUpdate(req.user.id, { $set: updateFields }, { new: true }).select('-password');
@@ -223,7 +233,13 @@ exports.deleteAccount = async (req, res) => {
     // Eliminar archivos de perfil del bucket de Firebase Storage si existen
     if (user.profilePicture) {
       const fileName = path.basename(user.profilePicture);
-      await bucket.file(`profile-pictures/${fileName}`).delete();
+      const filePath = path.resolve(__dirname, '../uploads', fileName);
+      if (isValidPath(filePath)) {
+        await bucket.file(`profile-pictures/${fileName}`).delete();
+        fs.unlinkSync(filePath);
+      } else {
+        console.error('Invalid file path detected:', filePath);
+      }
     }
 
     await User.findByIdAndDelete(userId);
