@@ -1,27 +1,34 @@
-const fs = require('fs');
-const path = require('path');
-const bcrypt = require('bcrypt');
+const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
-const { isValidPath, sanitizePath } = require('../utils/fileUtils');
+const { validationResult } = require('express-validator');
+const validator = require('validator');
 const User = require('../models/User');
 const { bucket } = require('../config/firebase');
-const RevokedToken = require('../models/RevokedToken');
 
-// Registrar usuario
 exports.register = async (req, res) => {
+  // Validar los datos de entrada
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    return res.status(400).json({ errors: errors.array() });
+  }
+
   const { name, email, password, role } = req.body;
 
+  // Sanitizar los datos de entrada
+  const sanitizedEmail = validator.normalizeEmail(email);
+  const sanitizedRole = validator.escape(role);
+  const sanitizedName = validator.escape(name);
+
   try {
-    let user = await User.findOne({ email });
+    let user = await User.findOne({ email: sanitizedEmail });
     if (user) {
       return res.status(400).json({ msg: 'User already exists' });
     }
-
     user = new User({
-      name,
-      email,
+      name: sanitizedName,
+      email: sanitizedEmail,
       password,
-      role // Asignar el rol del usuario
+      role: sanitizedRole // Asignar el rol del usuario
     });
 
     // Encriptar la contraseña
