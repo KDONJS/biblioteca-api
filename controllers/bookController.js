@@ -3,6 +3,13 @@ const path = require('path');
 const Book = require('../models/Book');
 const { bucket } = require('../config/firebase');
 
+// Función para validar la ruta del archivo
+function isValidPath(filePath) {
+  const uploadsDir = path.resolve(__dirname, '../uploads');
+  const resolvedPath = path.resolve(filePath);
+  return resolvedPath.startsWith(uploadsDir);
+}
+
 // Obtener todos los libros públicos
 exports.getPublicBooks = async (req, res) => {
   try {
@@ -56,7 +63,11 @@ exports.addBook = async (req, res) => {
 
     const book = await newBook.save();
 
-    fs.unlinkSync(filePath);
+    if (isValidPath(filePath)) {
+      fs.unlinkSync(filePath);
+    } else {
+      console.error('Invalid file path detected:', filePath);
+    }
 
     res.json(book);
   } catch (err) {
@@ -101,7 +112,11 @@ exports.updateBook = async (req, res) => {
 
       book.files.unshift({ fileUrl });
 
-      fs.unlinkSync(filePath);
+      if (isValidPath(filePath)) {
+        fs.unlinkSync(filePath);
+      } else {
+        console.error('Invalid file path detected:', filePath);
+      }
     }
 
     Object.assign(book, updateFields);
@@ -132,7 +147,14 @@ exports.deleteBook = async (req, res) => {
 
     for (let file of book.files) {
       const fileName = path.basename(file.fileUrl);
+      const filePath = path.resolve(__dirname, '../uploads', fileName);
       await bucket.file(`uploads/${fileName}`).delete();
+
+      if (isValidPath(filePath)) {
+        fs.unlinkSync(filePath);
+      } else {
+        console.error('Invalid file path detected:', filePath);
+      }
     }
 
     await Book.findByIdAndDelete(id);
