@@ -1,7 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const { isValidPath, sanitizePath } = require('../utils/fileUtils');
-const Book = require('../models/Book');
+const Book = require('../models/book');
 const { bucket } = require('../config/firebase');
 
 // Obtener todos los libros públicos
