@@ -1,34 +1,27 @@
+const fs = require('fs');
+const path = require('path');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
-const { validationResult } = require('express-validator');
-const validator = require('validator');
+const { isValidPath, sanitizePath } = require('../utils/fileUtils');
 const User = require('../models/User');
+const RevokedToken = require('../models/RevokedToken'); // Importa el modelo RevokedToken
 const { bucket } = require('../config/firebase');
 
+// Registrar usuario
 exports.register = async (req, res) => {
-  // Validar los datos de entrada
-  const errors = validationResult(req);
-  if (!errors.isEmpty()) {
-    return res.status(400).json({ errors: errors.array() });
-  }
-
   const { name, email, password, role } = req.body;
 
-  // Sanitizar los datos de entrada
-  const sanitizedEmail = validator.normalizeEmail(email);
-  const sanitizedRole = validator.escape(role);
-  const sanitizedName = validator.escape(name);
-
   try {
-    let user = await User.findOne({ email: sanitizedEmail });
+    let user = await User.findOne({ email });
     if (user) {
       return res.status(400).json({ msg: 'User already exists' });
     }
+
     user = new User({
-      name: sanitizedName,
-      email: sanitizedEmail,
+      name,
+      email,
       password,
-      role: sanitizedRole // Asignar el rol del usuario
+      role // Asignar el rol del usuario
     });
 
     // Encriptar la contraseña
@@ -215,11 +208,7 @@ exports.updateUserProfile = async (req, res) => {
       updateFields.profilePicture = profilePicture;
 
       // Eliminar el archivo local
-      if (isValidPath(filePath)) {
-        fs.unlinkSync(filePath);
-      } else {
-        console.error('Invalid file path detected:', filePath);
-      }
+      fs.unlinkSync(filePath);
     }
 
     user = await User.findByIdAndUpdate(userId, { $set: updateFields }, { new: true }).select('-password');

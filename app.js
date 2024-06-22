@@ -13,6 +13,9 @@ dotenv.config();
 
 const app = express();
 
+// Configurar Express para que confíe en los proxies
+app.set('trust proxy', 1); // Configuración necesaria para que express-rate-limit funcione correctamente detrás de un proxy
+
 // Conectar a la base de datos
 connectDB();
 
