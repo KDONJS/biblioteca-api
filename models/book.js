@@ -21,8 +21,13 @@ const BookSchema = new mongoose.Schema({
   files: [FileSchema],
   comments: [CommentSchema],
   views: { type: Number, default: 0 },
-  user: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true }, // Campo para almacenar el ID del usuario propietario
-  isPublic: { type: Boolean, default: true } // Campo para determinar si el libro es público o privado
+  user: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  isPublic: { type: Boolean, default: true },
+  additionalFields: {
+    type: Map,
+    of: mongoose.Schema.Types.Mixed,
+    default: {}
+  }
 });
 
 module.exports = mongoose.model('Book', BookSchema);

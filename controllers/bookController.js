@@ -28,7 +28,7 @@ exports.getUserBooks = async (req, res) => {
 
 // Añadir un nuevo libro
 exports.addBook = async (req, res) => {
-  const { title, author, year, publisher, tags, categories, isPublic } = req.body;
+  const { title, author, year, publisher, tags, categories, isPublic, additionalFields } = req.body;
   const filePath = sanitizePath(req.file.path);
   const fileName = req.file.filename;
 
@@ -52,7 +52,8 @@ exports.addBook = async (req, res) => {
       categories,
       files: [{ fileUrl }],
       user: req.user.id,
-      isPublic: isPublic || true
+      isPublic: isPublic !== undefined ? isPublic : true,
+      additionalFields: additionalFields ? JSON.parse(additionalFields) : {}
     });
 
     const book = await newBook.save();
@@ -73,9 +74,19 @@ exports.addBook = async (req, res) => {
 // Actualizar un libro
 exports.updateBook = async (req, res) => {
   const { id } = req.params;
-  const { title, author, year, publisher, tags, categories, isPublic } = req.body;
+  const { title, author, year, publisher, tags, categories, isPublic, additionalFields } = req.body;
 
-  const updateFields = { title, author, year, publisher, tags, categories, isPublic };
+  const updateFields = {};
+
+  // Solo agregar campos que están presentes en la solicitud
+  if (title) updateFields.title = title;
+  if (author) updateFields.author = author;
+  if (year) updateFields.year = year;
+  if (publisher) updateFields.publisher = publisher;
+  if (tags) updateFields.tags = tags;
+  if (categories) updateFields.categories = categories;
+  if (isPublic !== undefined) updateFields.isPublic = isPublic;
+  if (additionalFields) updateFields.additionalFields = JSON.parse(additionalFields);
 
   try {
     let book = await Book.findById(id);
