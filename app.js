@@ -4,6 +4,7 @@ const dotenv = require('dotenv');
 const helmet = require('helmet');
 const cookieParser = require('cookie-parser');
 const csrf = require('csrf');
+const path = require('path');
 const { admin, bucket } = require('./config/firebase');
 const rateLimit = require('./middleware/rateLimit'); // Importar el middleware de limitación de velocidad
 
@@ -53,7 +54,7 @@ app.use((err, req, res, next) => {
 });
 
 // Servir archivos estáticos
-app.use('/uploads', express.static('uploads'));
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // Rutas
 app.use('/api/books', rateLimit, require('./routes/books'));
@@ -66,3 +67,5 @@ app.get('/form', (req, res) => {
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+
+module.exports = app;
