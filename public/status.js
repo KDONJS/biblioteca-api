@@ -1,15 +1,9 @@
 const statusElement = document.getElementById('api-status');
 const requestList = document.getElementById('request-list');
 
-// Detect environment and set WebSocket URL accordingly
-const host = window.location.host.includes('vercel.app') ? 'wss://biblioteca-api-virid.vercel.app' : `ws://${window.location.host}`;
-const socket = new WebSocket(host);
+const eventSource = new EventSource('/status');
 
-socket.onopen = () => {
-  console.log('WebSocket connection established');
-};
-
-socket.onmessage = (event) => {
+eventSource.onmessage = (event) => {
   const data = JSON.parse(event.data);
   if (data.status) {
     if (data.status === 'OK') {
@@ -33,10 +27,6 @@ socket.onmessage = (event) => {
   }
 };
 
-socket.onclose = () => {
-  console.log('WebSocket connection closed');
-};
-
-socket.onerror = (error) => {
-  console.error('WebSocket error:', error);
+eventSource.onerror = (error) => {
+  console.error('SSE error:', error);
 };

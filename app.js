@@ -1,6 +1,5 @@
 const express = require('express');
 const http = require('http');
-const { Server } = require('ws');
 const connectDB = require('./config/db');
 const dotenv = require('dotenv');
 const helmet = require('helmet');
@@ -13,7 +12,6 @@ dotenv.config();
 
 const app = express();
 const server = http.createServer(app);
-const wss = new Server({ server });
 
 app.set('trust proxy', 1);
 
@@ -62,6 +60,23 @@ app.get('/form', (req, res) => {
   res.json({ csrfToken: res.locals.csrfToken });
 });
 
+app.get('/status', (req, res) => {
+  res.setHeader('Content-Type', 'text/event-stream');
+  res.setHeader('Cache-Control', 'no-cache');
+  res.setHeader('Connection', 'keep-alive');
+
+  const sendStatus = () => {
+    res.write(`data: ${JSON.stringify({ status: 'OK', message: 'Welcome to Biblioteca API SSE' })}\n\n`);
+  };
+
+  sendStatus();
+  const intervalId = setInterval(sendStatus, 5000);
+
+  req.on('close', () => {
+    clearInterval(intervalId);
+  });
+});
+
 // Servir el archivo index.html
 app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
@@ -79,28 +94,6 @@ app.use((req, res, next) => {
   requests.push(requestDetails);
   if (requests.length > 10) requests.shift(); // Mantener solo las últimas 10 solicitudes
   next();
-});
-
-wss.on('connection', (ws) => {
-  console.log('New client connected');
-  ws.on('message', (message) => {
-    console.log(`Received: ${message}`);
-  });
-  ws.on('close', () => {
-    console.log('Client disconnected');
-  });
-
-  // Enviar estado inicial y solicitudes recientes
-  ws.send(JSON.stringify({ status: 'OK', requests }));
-
-  // Enviar actualizaciones periódicas del estado y solicitudes
-  const intervalId = setInterval(() => {
-    ws.send(JSON.stringify({ status: 'OK', requests }));
-  }, 5000);
-
-  ws.on('close', () => {
-    clearInterval(intervalId);
-  });
 });
 
 const PORT = process.env.PORT || 5000;
