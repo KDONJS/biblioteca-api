@@ -13,13 +13,17 @@ dotenv.config();
 const app = express();
 const server = http.createServer(app);
 
+// Configurar Express para que confíe en los proxies
 app.set('trust proxy', 1);
 
+// Conectar a la base de datos
 connectDB();
 
+// Middleware para seguridad
 app.use(helmet());
 app.disable('x-powered-by');
 
+// Middleware para parsear JSON y cookies
 app.use(express.json());
 app.use(cookieParser());
 
@@ -50,16 +54,20 @@ app.use((err, req, res, next) => {
   }
 });
 
+// Servir archivos estáticos
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+app.use(express.static(path.join(__dirname, 'public')));
 
 const { upload } = require('./middleware/upload');
 app.use('/api/books', rateLimit, require('./routes/books'));
 app.use('/api/auth', rateLimit, require('./routes/auth'));
 
+// Ruta para obtener el token CSRF
 app.get('/form', (req, res) => {
   res.json({ csrfToken: res.locals.csrfToken });
 });
 
+// Ruta de SSE
 app.get('/status', (req, res) => {
   res.setHeader('Content-Type', 'text/event-stream');
   res.setHeader('Cache-Control', 'no-cache');
@@ -77,23 +85,9 @@ app.get('/status', (req, res) => {
   });
 });
 
-// Servir el archivo index.html
+// Ruta para la página principal
 app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
-});
-
-// Monitor de solicitudes
-const requests = [];
-
-app.use((req, res, next) => {
-  const requestDetails = {
-    method: req.method,
-    url: req.url,
-    time: new Date()
-  };
-  requests.push(requestDetails);
-  if (requests.length > 10) requests.shift(); // Mantener solo las últimas 10 solicitudes
-  next();
 });
 
 const PORT = process.env.PORT || 5000;
