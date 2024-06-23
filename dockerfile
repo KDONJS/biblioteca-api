@@ -1,20 +1,29 @@
-# Usa una imagen base oficial de Node.js 18
-FROM node:18
+# Etapa de construcción
+FROM node:18-alpine as build
 
-# Establece el directorio de trabajo
-WORKDIR /usr/src/app
+# Establecer el directorio de trabajo en el contenedor
+WORKDIR /app
 
-# Copia los archivos de package.json y package-lock.json
+# Copiar los archivos de package.json y package-lock.json
 COPY package*.json ./
 
-# Instala las dependencias
-RUN npm install
+# Instalar las dependencias de producción
+RUN npm install --only=production
 
-# Copia el resto del código de la aplicación
+# Copiar el resto de la aplicación
 COPY . .
 
-# Expone el puerto en el que tu aplicación se ejecutará
+# Etapa final
+FROM node:18-alpine
+
+# Establecer el directorio de trabajo en el contenedor
+WORKDIR /app
+
+# Copiar archivos necesarios desde la etapa de construcción
+COPY --from=build /app .
+
+# Exponer el puerto que utiliza la aplicación
 EXPOSE 5000
 
-# Define el comando por defecto para ejecutar tu aplicación
+# Ejecutar la aplicación
 CMD ["node", "app.js"]
