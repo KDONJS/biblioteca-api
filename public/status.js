@@ -1,8 +1,9 @@
 const statusElement = document.getElementById('api-status');
 const requestList = document.getElementById('request-list');
 
-// Conectar a WebSocket
-const socket = new WebSocket(`ws://biblioteca-api-virid.vercel.app`);
+// Detect environment and set WebSocket URL accordingly
+const host = window.location.host.includes('vercel.app') ? 'wss://biblioteca-api-virid.vercel.app' : `ws://${window.location.host}`;
+const socket = new WebSocket(host);
 
 socket.onopen = () => {
   console.log('WebSocket connection established');
