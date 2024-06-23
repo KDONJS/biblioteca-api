@@ -1,4 +1,6 @@
 const express = require('express');
+const http = require('http');
+const { Server } = require('ws');
 const connectDB = require('./config/db');
 const dotenv = require('dotenv');
 const helmet = require('helmet');
@@ -6,28 +8,22 @@ const cookieParser = require('cookie-parser');
 const csrf = require('csrf');
 const path = require('path');
 const { admin, bucket } = require('./config/firebase');
-const rateLimit = require('./middleware/rateLimit'); // Importar el middleware de limitación de velocidad
+const rateLimit = require('./middleware/rateLimit');
 
-// Cargar variables de entorno desde el archivo .env
 dotenv.config();
 
 const app = express();
+const server = http.createServer(app);
+const wss = new Server({ server });
 
-// Configurar Express para que confíe en los proxies
-app.set('trust proxy', 1); // Configuración necesaria para que express-rate-limit funcione correctamente detrás de un proxy
-
-// Conectar a la base de datos
+app.set('trust proxy', 1);
 connectDB();
 
-// Middleware para seguridad
 app.use(helmet());
 app.disable('x-powered-by');
-
-// Middleware para parsear JSON y cookies
 app.use(express.json());
 app.use(cookieParser());
 
-// Configurar el middleware CSRF
 const tokens = new csrf();
 const csrfSecret = process.env.CSRF_SECRET;
 
@@ -47,7 +43,6 @@ app.use((req, res, next) => {
   next();
 });
 
-// Middleware para manejar errores CSRF
 app.use((err, req, res, next) => {
   if (err.code === 'EBADCSRFTOKEN') {
     res.status(403).send('Form tampered with.');
@@ -56,23 +51,61 @@ app.use((err, req, res, next) => {
   }
 });
 
-// Servir archivos estáticos
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+app.use(express.static(path.join(__dirname, 'public')));
 
-// Rutas
 app.use('/api/books', rateLimit, require('./routes/books'));
 app.use('/api/auth', rateLimit, require('./routes/auth'));
 
-// Ruta para obtener el token CSRF
 app.get('/form', (req, res) => {
   res.json({ csrfToken: res.locals.csrfToken });
 });
 
+app.get('/', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
+
+const recentRequests = [];
+
+// Middleware para capturar solicitudes
 app.use((req, res, next) => {
-  res.status(404).sendFile(path.join(__dirname, 'public', 'index.html'));
+  const requestDetails = {
+    method: req.method,
+    url: req.originalUrl,
+    time: new Date().toISOString()
+  };
+
+  recentRequests.push(requestDetails);
+  if (recentRequests.length > 10) {
+    recentRequests.shift(); // Mantén solo las últimas 10 solicitudes
+  }
+
+  // Notificar a los clientes WebSocket
+  wss.clients.forEach((client) => {
+    if (client.readyState === client.OPEN) {
+      client.send(JSON.stringify({ requests: recentRequests }));
+    }
+  });
+
+  next();
+});
+
+wss.on('connection', (ws) => {
+  console.log('New client connected');
+
+  ws.on('message', (message) => {
+    console.log(`Received: ${message}`);
+  });
+
+  ws.on('close', () => {
+    console.log('Client disconnected');
+  });
+
+  // Enviar estado inicial
+  ws.send(JSON.stringify({ status: 'OK', message: 'Welcome to Biblioteca API WebSocket', requests: recentRequests }));
 });
 
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+server.listen(PORT, () => console.log(`Server running on port ${PORT}`));
 
-module.exports = app;
+module.exports = app

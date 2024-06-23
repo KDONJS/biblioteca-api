@@ -4,7 +4,7 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const { isValidPath, sanitizePath } = require('../utils/fileUtils');
 const User = require('../models/User');
-const RevokedToken = require('../models/RevokedToken'); // Importa el modelo RevokedToken
+const RevokedToken = require('../models/RevokedToken');
 const { bucket } = require('../config/firebase');
 
 // Registrar usuario
