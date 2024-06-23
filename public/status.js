@@ -2,7 +2,7 @@ const statusElement = document.getElementById('api-status');
 const requestList = document.getElementById('request-list');
 
 // Conectar a WebSocket
-const socket = new WebSocket(`ws://${window.location.host}`);
+const socket = new WebSocket(`ws://biblioteca-api-virid.vercel.app`);
 
 socket.onopen = () => {
   console.log('WebSocket connection established');
