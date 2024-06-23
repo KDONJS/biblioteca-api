@@ -8,6 +8,7 @@ const cookieParser = require('cookie-parser');
 const csrf = require('csrf');
 const path = require('path');
 const rateLimit = require('./middleware/rateLimit');
+const { upload, uploadToFirebase } = require('./middleware/upload');
 
 dotenv.config();
 
@@ -54,30 +55,17 @@ app.use((err, req, res, next) => {
 
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
-const { upload } = require('./middleware/upload');
 app.use('/api/books', rateLimit, require('./routes/books'));
 app.use('/api/auth', rateLimit, require('./routes/auth'));
 
+// Ruta para obtener el token CSRF
 app.get('/form', (req, res) => {
   res.json({ csrfToken: res.locals.csrfToken });
 });
 
-// Servir el archivo index.html
-app.use(express.static(path.join(__dirname, 'public')));
-
+// Ruta para servir el archivo HTML
 app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
-});
-
-// Manejar rutas no encontradas
-app.use((req, res, next) => {
-  res.status(404).sendFile(path.join(__dirname, 'public', 'index.html'));
-});
-
-// Manejar errores generales
-app.use((err, req, res, next) => {
-  console.error(err.stack);
-  res.status(500).send('Something broke!');
 });
 
 wss.on('connection', (ws) => {
