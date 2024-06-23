@@ -1,9 +1,17 @@
 const statusElement = document.getElementById('api-status');
 const requestList = document.getElementById('request-list');
 
-const eventSource = new EventSource('/status');
+// Determinar la URL de WebSocket correcta
+const socketUrl = window.location.protocol === 'https:' ? `wss://${window.location.host}` : `ws://${window.location.host}`;
 
-eventSource.onmessage = (event) => {
+// Conectar a WebSocket
+const socket = new WebSocket(socketUrl);
+
+socket.onopen = () => {
+  console.log('WebSocket connection established');
+};
+
+socket.onmessage = (event) => {
   const data = JSON.parse(event.data);
   if (data.status) {
     if (data.status === 'OK') {
@@ -27,6 +35,10 @@ eventSource.onmessage = (event) => {
   }
 };
 
-eventSource.onerror = (error) => {
-  console.error('SSE error:', error);
+socket.onclose = () => {
+  console.log('WebSocket connection closed');
+};
+
+socket.onerror = (error) => {
+  console.error('WebSocket error:', error);
 };

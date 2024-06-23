@@ -1,5 +1,6 @@
 const express = require('express');
 const http = require('http');
+const { Server } = require('ws');
 const connectDB = require('./config/db');
 const dotenv = require('dotenv');
 const helmet = require('helmet');
@@ -12,18 +13,15 @@ dotenv.config();
 
 const app = express();
 const server = http.createServer(app);
+const wss = new Server({ server });
 
-// Configurar Express para que confíe en los proxies
 app.set('trust proxy', 1);
 
-// Conectar a la base de datos
 connectDB();
 
-// Middleware para seguridad
 app.use(helmet());
 app.disable('x-powered-by');
 
-// Middleware para parsear JSON y cookies
 app.use(express.json());
 app.use(cookieParser());
 
@@ -54,7 +52,6 @@ app.use((err, req, res, next) => {
   }
 });
 
-// Servir archivos estáticos
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 app.use(express.static(path.join(__dirname, 'public')));
 
@@ -62,32 +59,26 @@ const { upload } = require('./middleware/upload');
 app.use('/api/books', rateLimit, require('./routes/books'));
 app.use('/api/auth', rateLimit, require('./routes/auth'));
 
-// Ruta para obtener el token CSRF
 app.get('/form', (req, res) => {
   res.json({ csrfToken: res.locals.csrfToken });
 });
 
-// Ruta de SSE
-app.get('/status', (req, res) => {
-  res.setHeader('Content-Type', 'text/event-stream');
-  res.setHeader('Cache-Control', 'no-cache');
-  res.setHeader('Connection', 'keep-alive');
-
-  const sendStatus = () => {
-    res.write(`data: ${JSON.stringify({ status: 'OK', message: 'Welcome to Biblioteca API SSE' })}\n\n`);
-  };
-
-  sendStatus();
-  const intervalId = setInterval(sendStatus, 5000);
-
-  req.on('close', () => {
-    clearInterval(intervalId);
-  });
-});
-
-// Ruta para la página principal
 app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
+
+// Manejar conexiones WebSocket
+wss.on('connection', (ws) => {
+  console.log('New client connected');
+  ws.on('message', (message) => {
+    console.log(`Received: ${message}`);
+  });
+  ws.on('close', () => {
+    console.log('Client disconnected');
+  });
+
+  // Enviar estado inicial
+  ws.send(JSON.stringify({ status: 'OK', message: 'Welcome to Biblioteca API WebSocket' }));
 });
 
 const PORT = process.env.PORT || 5000;
