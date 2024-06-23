@@ -3,9 +3,10 @@ const router = express.Router();
 const { check } = require('express-validator');
 const authController = require('../controllers/authController');
 const rateLimit = require('../middleware/rateLimit');
-const auth = require('../middleware/auth');  // Importar el middleware de autenticación
+const auth = require('../middleware/auth');
+const { upload } = require('../middleware/upload'); // Asegúrate de que esto está correcto
+
 const checkRole = require('../middleware/auth').checkRole;
-const upload = require('../middleware/upload');  // Asegúrate de que `upload` esté definido si estás usando multer
 
 // Registro de usuario
 router.post(

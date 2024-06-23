@@ -1,8 +1,9 @@
 const fs = require('fs');
 const path = require('path');
 const { isValidPath, sanitizePath } = require('../utils/fileUtils');
-const Book = require('../models/book');
 const { bucket } = require('../config/firebase');
+const { uploadToFirebase } = require('../middleware/upload');
+const Book = require('../models/book');
 
 // Obtener todos los libros públicos
 exports.getPublicBooks = async (req, res) => {
@@ -29,19 +30,9 @@ exports.getUserBooks = async (req, res) => {
 // Añadir un nuevo libro
 exports.addBook = async (req, res) => {
   const { title, author, year, publisher, tags, categories, isPublic, additionalFields } = req.body;
-  const filePath = sanitizePath(req.file.path);
-  const fileName = req.file.filename;
 
   try {
-    await bucket.upload(filePath, {
-      destination: `uploads/${fileName}`,
-      gzip: true,
-      metadata: {
-        cacheControl: 'public, max-age=31536000',
-      },
-    });
-
-    const fileUrl = `https://storage.googleapis.com/${process.env.FIREBASE_STORAGE_BUCKET}/uploads/${fileName}`;
+    const fileUrl = await uploadToFirebase(req.file);
 
     const newBook = new Book({
       title,
@@ -52,21 +43,14 @@ exports.addBook = async (req, res) => {
       categories,
       files: [{ fileUrl }],
       user: req.user.id,
-      isPublic: isPublic !== undefined ? isPublic : true,
-      additionalFields: additionalFields ? JSON.parse(additionalFields) : {}
+      isPublic: isPublic || true,
+      additionalFields
     });
 
     const book = await newBook.save();
-
-    if (isValidPath(filePath)) {
-      fs.unlinkSync(filePath);
-    } else {
-      console.error('Invalid file path detected:', filePath);
-    }
-
     res.json(book);
   } catch (err) {
-    console.error(err.message);
+    console.error('Error al añadir libro:', err.message);
     res.status(500).send('Server Error');
   }
 };
@@ -78,7 +62,6 @@ exports.updateBook = async (req, res) => {
 
   const updateFields = {};
 
-  // Solo agregar campos que están presentes en la solicitud
   if (title) updateFields.title = title;
   if (author) updateFields.author = author;
   if (year) updateFields.year = year;
@@ -86,7 +69,7 @@ exports.updateBook = async (req, res) => {
   if (tags) updateFields.tags = tags;
   if (categories) updateFields.categories = categories;
   if (isPublic !== undefined) updateFields.isPublic = isPublic;
-  if (additionalFields) updateFields.additionalFields = JSON.parse(additionalFields);
+  if (additionalFields) updateFields.additionalFields = additionalFields;
 
   try {
     let book = await Book.findById(id);
@@ -100,41 +83,20 @@ exports.updateBook = async (req, res) => {
     }
 
     if (req.file) {
-      const filePath = sanitizePath(req.file.path);
-      const fileName = req.file.filename;
-
-      await bucket.upload(filePath, {
-        destination: `uploads/${fileName}`,
-        gzip: true,
-        metadata: {
-          cacheControl: 'public, max-age=31536000',
-        },
-      });
-
-      const fileUrl = `https://storage.googleapis.com/${process.env.FIREBASE_STORAGE_BUCKET}/uploads/${fileName}`;
-
+      const fileUrl = await uploadToFirebase(req.file);
       book.files.forEach(file => file.isDeleted = true);
-
       book.files.unshift({ fileUrl });
-
-      if (isValidPath(filePath)) {
-        fs.unlinkSync(filePath);
-      } else {
-        console.error('Invalid file path detected:', filePath);
-      }
     }
 
     Object.assign(book, updateFields);
 
     await book.save();
-
     res.json(book);
   } catch (err) {
-    console.error(err.message);
+    console.error('Error al actualizar libro:', err.message);
     res.status(500).send('Server Error');
   }
 };
-
 // Eliminar un libro
 exports.deleteBook = async (req, res) => {
   const { id } = req.params;

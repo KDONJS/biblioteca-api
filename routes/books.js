@@ -2,8 +2,9 @@ const express = require('express');
 const router = express.Router();
 const bookController = require('../controllers/bookController');
 const auth = require('../middleware/auth');
-const upload = require('../middleware/upload');
+const { upload } = require('../middleware/upload'); // Asegúrate de que esto está correcto
 const rateLimit = require('../middleware/rateLimit');
+
 const checkRole = require('../middleware/auth').checkRole;
 
 // Rutas para libros

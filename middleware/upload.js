@@ -1,34 +1,42 @@
 const multer = require('multer');
-const path = require('path');
+const { v4: uuidv4 } = require('uuid');
+const { bucket } = require('../config/firebase');
 
-// Configuración de Multer
-const storage = multer.diskStorage({
-  destination: './uploads',
-  filename: function(req, file, cb) {
-    cb(null, file.fieldname + '-' + Date.now() + path.extname(file.originalname));
-  }
-});
+// Multer storage configuration to use Firebase Storage
+const storage = multer.memoryStorage();
 
-// Filtro de archivos
-function checkFileType(file, cb) {
-  const filetypes = /jpeg|jpg|png|gif|pdf|doc|docx|ppt|pptx/;
-  const extname = filetypes.test(path.extname(file.originalname).toLowerCase());
-  const mimetype = filetypes.test(file.mimetype);
-
-  if (extname && mimetype) {
-    return cb(null, true);
-  } else {
-    cb('Error: Images Only!');
-  }
-}
-
-// Inicialización de Multer
 const upload = multer({
-  storage: storage,
-  limits: { fileSize: 1000000 }, // 1MB
-  fileFilter: function(req, file, cb) {
-    checkFileType(file, cb);
+  storage,
+  limits: { fileSize: 5 * 1024 * 1024 }, // Limit the file size to 5MB
+  fileFilter: (req, file, cb) => {
+    if (!file.mimetype.startsWith('image/')) {
+      return cb(new Error('Only images are allowed'), false);
+    }
+    cb(null, true);
   }
 });
 
-module.exports = upload;
+// Function to upload file to Firebase Storage
+const uploadToFirebase = async (file) => {
+  const blob = bucket.file(uuidv4() + '-' + file.originalname);
+  const blobStream = blob.createWriteStream({
+    metadata: {
+      contentType: file.mimetype,
+    },
+  });
+
+  return new Promise((resolve, reject) => {
+    blobStream.on('error', (err) => {
+      reject(err);
+    });
+
+    blobStream.on('finish', () => {
+      const publicUrl = `https://storage.googleapis.com/${bucket.name}/${blob.name}`;
+      resolve(publicUrl);
+    });
+
+    blobStream.end(file.buffer);
+  });
+};
+
+module.exports = { upload, uploadToFirebase };
