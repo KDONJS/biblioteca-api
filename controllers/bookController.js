@@ -34,6 +34,8 @@ exports.addBook = async (req, res) => {
   try {
     const fileUrl = await uploadToFirebase(req.file);
 
+    const parsedAdditionalFields = typeof additionalFields === 'string' ? JSON.parse(additionalFields) : additionalFields;
+
     const newBook = new Book({
       title,
       author,
@@ -44,13 +46,14 @@ exports.addBook = async (req, res) => {
       files: [{ fileUrl }],
       user: req.user.id,
       isPublic: isPublic || true,
-      additionalFields
+      additionalFields: parsedAdditionalFields
     });
 
     const book = await newBook.save();
+
     res.json(book);
   } catch (err) {
-    console.error('Error al añadir libro:', err.message);
+    console.error(err.message);
     res.status(500).send('Server Error');
   }
 };
@@ -62,6 +65,7 @@ exports.updateBook = async (req, res) => {
 
   const updateFields = {};
 
+  // Solo agregar campos que están presentes en la solicitud
   if (title) updateFields.title = title;
   if (author) updateFields.author = author;
   if (year) updateFields.year = year;
@@ -69,7 +73,7 @@ exports.updateBook = async (req, res) => {
   if (tags) updateFields.tags = tags;
   if (categories) updateFields.categories = categories;
   if (isPublic !== undefined) updateFields.isPublic = isPublic;
-  if (additionalFields) updateFields.additionalFields = additionalFields;
+  if (additionalFields) updateFields.additionalFields = typeof additionalFields === 'string' ? JSON.parse(additionalFields) : additionalFields;
 
   try {
     let book = await Book.findById(id);
@@ -84,16 +88,19 @@ exports.updateBook = async (req, res) => {
 
     if (req.file) {
       const fileUrl = await uploadToFirebase(req.file);
+
       book.files.forEach(file => file.isDeleted = true);
+
       book.files.unshift({ fileUrl });
     }
 
     Object.assign(book, updateFields);
 
     await book.save();
+
     res.json(book);
   } catch (err) {
-    console.error('Error al actualizar libro:', err.message);
+    console.error(err.message);
     res.status(500).send('Server Error');
   }
 };
